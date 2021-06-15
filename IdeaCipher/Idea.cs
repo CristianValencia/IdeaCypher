@@ -2,93 +2,88 @@
 
 namespace IdeaCipher
 {
-    /**
- * Creates an instance of the IDEA processor, initialized with a 16-byte binary key.
- *
- * @param key
- *    A 16-byte binary key.
- * @param encrypt
- *    true to encrypt, false to decrypt.
- */
-
     /// <summary>
     /// Crea una instancia del procesado de cifrado IDEA.
     /// </summary>
     public class Idea
     {
         #region Campos
+        //Una ronda completa consta de una serie de 14 pasos.
         internal static int rounds = 8;
-        // Internal encryption sub-keys.
+        // llave criptográfica interna de cifrado.
         internal int[] subKey;
         #endregion
-        // Number of rounds.
 
-
+        #region Constructor
+        /// <summary>
+        /// Inicialización de las llaves a partir de los parámetros de entrada.
+        /// </summary>
+        /// <param name="charKey">Una llave binaria de 16 bytes.</param>
+        /// <param name="encrypt">Indica si se desea encriptar o desencriptar. Verdadero para encriptar, falso para desencriptar.</param>
         public Idea(String charKey, bool encrypt)
         {
-            byte[] key = generateUserKeyFromCharKey(charKey);
-            // Expands a 16-byte user key to the internal encryption sub-keys.
-            int[] tempSubKey = expandUserKey(key);
+            byte[] key = GenerateUserKeyFromCharKey(charKey);
+            int[] tempSubKey = ExpandUserKey(key);
+
             if (encrypt)
             {
                 subKey = tempSubKey;
             }
             else
             {
-                subKey = invertSubKey(tempSubKey);
+                subKey = InvertSubKey(tempSubKey);
             }
         }
+        #endregion
 
-        /**
-         * Encrypts or decrypts a block of 8 data bytes.
-         *
-         * @param data
-         *    Buffer containing the 8 data bytes to be encrypted/decrypted.
-         */
-        public void crypt(byte[] data)
+        #region Métodos
+        /// <summary>
+        /// Encripta o desencripta un bloque de 8 bytes de datos.
+        /// </summary>
+        /// <param name="data">Un arreglo de bytes que contiene los 8 bytes de datos a ser enncriptados o desencriptados.</param>
+        public void Crypt(byte[] data)
         {
-            crypt(data, 0);
+            Crypt(data, dataPos: 0);
         }
 
-        /**
-         * Encrypts or decrypts a block of 8 data bytes.
-         *
-         * @param data
-         *    Data buffer containing the bytes to be encrypted/decrypted.
-         * @param dataPos
-         *    Start position of the 8 bytes within the buffer.
-         */
-        public void crypt(byte[] data, int dataPos)
+        /// <summary>
+        /// Encripta o desencripta un bloque de 8 bytes de datos.
+        /// </summary>
+        /// <param name="data">Un arreglo de bytes que contiene los 8 bytes de datos a ser enncriptados o desencriptados.</param>
+        /// <param name="dataPos">Posición inicial de los 8 bytes dentro del buffer.</param>
+        public void Crypt(byte[] data, int dataPos)
         {
+
             int x0 = ((data[dataPos + 0] & 0xFF) << 8) | (data[dataPos + 1] & 0xFF);
             int x1 = ((data[dataPos + 2] & 0xFF) << 8) | (data[dataPos + 3] & 0xFF);
             int x2 = ((data[dataPos + 4] & 0xFF) << 8) | (data[dataPos + 5] & 0xFF);
             int x3 = ((data[dataPos + 6] & 0xFF) << 8) | (data[dataPos + 7] & 0xFF);
-            //
-            int p = 0;
+
+
+            int subkeyPosition = 0;
             for (int round = 0; round < rounds; round++)
             {
-                int y0 = mul(x0, subKey[p++]);
-                int y1 = add(x1, subKey[p++]);
-                int y2 = add(x2, subKey[p++]);
-                int y3 = mul(x3, subKey[p++]);
-                //
-                int t0 = mul(y0 ^ y2, subKey[p++]);
-                int t1 = add(y1 ^ y3, t0);
-                int t2 = mul(t1, subKey[p++]);
-                int t3 = add(t0, t2);
-                //
+                int y0 = Multiplication(x0, subKey[subkeyPosition++]);
+                int y1 = Add(x1, subKey[subkeyPosition++]);
+                int y2 = Add(x2, subKey[subkeyPosition++]);
+                int y3 = Multiplication(x3, subKey[subkeyPosition++]);
+
+                int t0 = Multiplication(y0 ^ y2, subKey[subkeyPosition++]);
+                int t1 = Add(y1 ^ y3, t0);
+                int t2 = Multiplication(t1, subKey[subkeyPosition++]);
+                int t3 = Add(t0, t2);
+
                 x0 = y0 ^ t2;
                 x1 = y2 ^ t2;
                 x2 = y1 ^ t3;
                 x3 = y3 ^ t3;
             }
-            //
-            int r0 = mul(x0, subKey[p++]);
-            int r1 = add(x2, subKey[p++]);
-            int r2 = add(x1, subKey[p++]);
-            int r3 = mul(x3, subKey[p++]);
-            //
+
+            int r0 = Multiplication(x0, subKey[subkeyPosition++]);
+            int r1 = Add(x2, subKey[subkeyPosition++]);
+            int r2 = Add(x1, subKey[subkeyPosition++]);
+            int r3 = Multiplication(x3, subKey[subkeyPosition++]);
+
             data[dataPos + 0] = (byte)(r0 >> 8);
             data[dataPos + 1] = (byte)r0;
             data[dataPos + 2] = (byte)(r1 >> 8);
@@ -99,35 +94,51 @@ namespace IdeaCipher
             data[dataPos + 7] = (byte)r3;
         }
 
-        // Expands a 16-byte user key to the internal encryption sub-keys.
-        private static int[] expandUserKey(byte[] userKey)
+        /// <summary>
+        /// Expande la llave del usuario, que debe ser de 16 bytes a las llaves de enciptación internas.
+        /// </summary>
+        /// <param name="userKey">Llave de 16 bytes.</param>
+        /// <returns>Un arreglo de subllaves.</returns>
+        private static int[] ExpandUserKey(byte[] userKey)
         {
             if (userKey.Length != 16)
             {
                 throw new ArgumentException("Key length must be 128 bit", "key");
             }
+
             int[] key = new int[rounds * 6 + 4];
+
             for (int i = 0; i < userKey.Length / 2; i++)
             {
                 key[i] = ((userKey[2 * i] & 0xFF) << 8) | (userKey[2 * i + 1] & 0xFF);
             }
+
             for (int i = userKey.Length / 2; i < key.Length; i++)
             {
                 key[i] = ((key[(i + 1) % 8 != 0 ? i - 7 : i - 15] << 9) | (key[(i + 2) % 8 < 2 ? i - 14 : i - 6] >> 7)) & 0xFFFF;
             }
+
             return key;
         }
 
-        // Inverts decryption/encrytion sub-keys to encrytion/decryption sub-keys.
-        private static int[] invertSubKey(int[] key)
+        /// <summary>
+        /// Invierte las llaves de encriptación y desencriptación de la siguiente manera:
+        /// encriptación -> desencriptación.
+        /// desencriptación -> encriptación.
+        /// </summary>
+        /// <param name="userKey">Llave de 16 bytes.</param>
+        /// <returns>La sub-llave invertida.</returns>
+        private static int[] InvertSubKey(int[] key)
         {
             int[] invKey = new int[key.Length];
             int p = 0;
             int i = rounds * 6;
-            invKey[i + 0] = mulInv(key[p++]);
-            invKey[i + 1] = addInv(key[p++]);
-            invKey[i + 2] = addInv(key[p++]);
-            invKey[i + 3] = mulInv(key[p++]);
+
+            invKey[i + 0] = MultiplicativeInverse(key[p++]);
+            invKey[i + 1] = AddInverse(key[p++]);
+            invKey[i + 2] = AddInverse(key[p++]);
+            invKey[i + 3] = MultiplicativeInverse(key[p++]);
+
             for (int r = rounds - 1; r >= 0; r--)
             {
                 i = r * 6;
@@ -135,24 +146,32 @@ namespace IdeaCipher
                 int n = r > 0 ? 1 : 2;
                 invKey[i + 4] = key[p++];
                 invKey[i + 5] = key[p++];
-                invKey[i + 0] = mulInv(key[p++]);
-                invKey[i + m] = addInv(key[p++]);
-                invKey[i + n] = addInv(key[p++]);
-                invKey[i + 3] = mulInv(key[p++]);
+                invKey[i + 0] = MultiplicativeInverse(key[p++]);
+                invKey[i + m] = AddInverse(key[p++]);
+                invKey[i + n] = AddInverse(key[p++]);
+                invKey[i + 3] = MultiplicativeInverse(key[p++]);
             }
             return invKey;
         }
 
-        // Addition in the additive group.
-        // The arguments and the result are within the range 0 .. 0xFFFF.
-        private static int add(int a, int b)
+        /// <summary>
+        /// Suma de dos valores que queden en un rango 0 - 0xFFFF.
+        /// </summary>
+        /// <param name="a">Valor 1.</param>
+        /// <param name="b">Valor 2.</param>
+        /// <returns>Entero, resultado de la suma en el rango de 0 - 0xFFFF</returns>
+        private static int Add(int a, int b)
         {
             return (a + b) & 0xFFFF;
         }
 
-        // Multiplication in the multiplicative group.
-        // The arguments and the result are within the range 0 .. 0xFFFF.
-        private static int mul(int a, int b)
+        /// <summary>
+        /// Multiplicación del grupo multiplicativo.
+        /// </summary>
+        /// <param name="a">Valor 1.</param>
+        /// <param name="b">Valor 2.</param>
+        /// <returns>Entero, resultado de la multiplicación en el rango 0-0xFFFF.</returns>
+        private static int Multiplication(int a, int b)
         {
             long r = (long)a * b;
             if (r != 0)
@@ -165,46 +184,66 @@ namespace IdeaCipher
             }
         }
 
-        // Additive Inverse.
-        // The argument and the result are within the range 0 .. 0xFFFF.
-        private static int addInv(int x)
+        /// <summary>
+        /// Suma de dos valores que queden en un rango 0 - 0xFFFF. El resultado de invierte del top 0x10000.
+        /// </summary>
+        /// <param name="a">Valor 1.</param>
+        /// <param name="b">Valor 2.</param>
+        /// <returns>Entero, resultado de la suma inversa en el rango de 0 - 0xFFFF</returns>
+        private static int AddInverse(int x)
         {
             return (0x10000 - x) & 0xFFFF;
         }
 
-        // Multiplicative inverse.
-        // The argument and the result are within the range 0 .. 0xFFFF.
-        // The following condition is met for all values of x: mul(x, mulInv(x)) == 1
-        private static int mulInv(int x)
+        /// <summary>
+        /// Multiplicación del grupo multiplicativo, a la inversa.
+        /// La condición es válida para todos los valores del valor inicial iguales a 1.
+        /// </summary>
+        /// <param name="a">Valor 1.</param>
+        /// <param name="b">Valor 2.</param>
+        /// <returns>Entero, resultado de la multiplicación en el rango 0-0xFFFF.</returns>
+        private static int MultiplicativeInverse(int x)
         {
             if (x <= 1)
             {
                 return x;
             }
+
             int y = 0x10001;
             int t0 = 1;
             int t1 = 0;
+
             while (true)
             {
                 t1 += y / x * t0;
                 y %= x;
+
                 if (y == 1)
                 {
                     return 0x10001 - t1;
                 }
+
                 t0 += x / y * t1;
                 x %= y;
+
                 if (x == 1)
                 {
                     return t0;
                 }
             }
         }
-        // Generates a 16-byte binary user key from a character string key.
-        private static byte[] generateUserKeyFromCharKey(String charKey)
+
+        /// <summary>
+        /// Genera una llave binaria de 16 bytes de una llave, la cual es una cadena de caracteres.
+        /// </summary>
+        /// <param name="charKey">La cadena de carateres de entrada.</param>
+        /// <returns>La llave generada.</returns>
+        private static byte[] GenerateUserKeyFromCharKey(string charKey)
         {
-            int nofChar = 0x7E - 0x21 + 1;    // Number of different valid characters
+            //Número de los distintos caracteres válidos.
+            int nofChar = 0x7E - 0x21 + 1;
             int[] a = new int[8];
+
             for (int p = 0; p < charKey.Length; p++)
             {
                 int c = charKey[p];
@@ -216,7 +255,9 @@ namespace IdeaCipher
                     c >>= 16;
                 }
             }
+
             byte[] key = new byte[16];
+
             for (int i = 0; i < 8; i++)
             {
                 key[i * 2] = (byte)(a[i] >> 8);
@@ -224,5 +265,6 @@ namespace IdeaCipher
             }
             return key;
         }
-    }
+		#endregion
+	}
 }

@@ -111,13 +111,13 @@ namespace IdeaCipher
                 if (encrypt)
                 {
                     xor(data, pos, prev);
-                    idea.crypt(data, pos);
+                    idea.Crypt(data, pos);
                     Array.Copy(data, pos, prev, 0, blockSize);
                 }
                 else
                 {
                     Array.Copy(data, pos, newPrev, 0, blockSize);
-                    idea.crypt(data, pos);
+                    idea.Crypt(data, pos);
                     xor(data, pos, prev);
                     byte[] temp = prev;
                     prev = newPrev;
