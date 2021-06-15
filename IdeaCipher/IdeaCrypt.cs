@@ -50,11 +50,11 @@ namespace IdeaCipher
                 {
                     if (inFileSize == 0)
                     {
-                        throw new IOException("Input file is empty.");
+                        throw new IOException("El archivo está vacío.");
                     }
                     if (inFileSize % blockSize != 0)
                     {
-                        throw new IOException("Input file size is not a multiple of " + blockSize + ".");
+                        throw new IOException("El archivo de entrada no es un múltiplo de " + blockSize + ".");
                     }
                     inDataLen = inFileSize - blockSize;
                     outDataLen = inDataLen;
@@ -70,7 +70,7 @@ namespace IdeaCipher
                     long outFileSize = readDataLength(inStream, bsc);
                     if (outFileSize < 0 || outFileSize > inDataLen || outFileSize < inDataLen - blockSize + 1)
                     {
-                        throw new IOException("Input file is not a valid cryptogram.");
+                        throw new IOException("El archivo no ha sido firmado con la misma llave.");
                     }
                     if (outFileSize != outDataLen)
                     {
@@ -137,7 +137,7 @@ namespace IdeaCipher
                 int trLen = inStream.Read(buf, 0, reqLen);
                 if (trLen != reqLen)
                 {
-                    throw new Exception("Incomplete data chunk read from file.");
+                    throw new Exception("Hubo un error en la lectura de datos, ya que han sido leidos de manera incompleta.");
                 }
                 int chunkLen = (trLen + blockSize - 1) / blockSize * blockSize;
                 for (int i = trLen; i <= chunkLen; i++)
@@ -170,7 +170,7 @@ namespace IdeaCipher
             int trLen = stream.Read(buf, 0, blockSize);
             if (trLen != blockSize)
             {
-                throw new Exception("Unable to read data length suffix.");
+                throw new Exception("No se pudo leer el stream de datos.");
             }
             bsc.crypt(buf, 0);
             return unpackDataLength(buf);
@@ -190,7 +190,7 @@ namespace IdeaCipher
         {
             if (i > 0x1FFFFFFFFFFFL) // 45 bits
             {
-                throw new ArgumentException("Text too long.");
+                throw new ArgumentException("Lo sentimos, usa un texto menos largo.");
             }
             byte[] b = new byte[blockSize];
             b[7] = (byte)(i << 3);
