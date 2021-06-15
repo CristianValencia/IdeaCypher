@@ -3,36 +3,29 @@ using System.IO;
 
 namespace IdeaCipher
 {
-    /**
-     * Creates an instance of the IDEA processor, initialized with a 16-byte binary key.
-     *
-     * @param key
-     *    A 16-byte binary key.
-     * @param encrypt
-     *    true to encrypt, false to decrypt.
-     */
+
+    /// <summary>
+    /// Clase para el procesado de archivos. 
+    /// </summary>
     public class IdeaCrypt
     {
+        #region Campos estáticos.
         private static int blockSize = 8;
+        #endregion
 
-        /**
-         * Encrypts or decrypts a file.
-         *
-         * @param inputFileName
-         *    Name of the input file.
-         * @param outputFileName
-         *    Name of the output file.
-         * @param charKey
-         *    The encryption key. A string of ASCII characters within the range 0x21 .. 0x7E.
-         * @param encrypt
-         *    true to encrypt, false to decrypt.
-         * @param mode
-         *    Mode of operation.
-         */
-        public static void cryptFile(String inputFileName, String outputFileName, String charKey, bool encrypt)
+
+        /// <summary>
+        /// Encripta o desencripta un archivo.
+        /// </summary>
+        /// <param name="inputFileName">Nombre del archivo de entrada.</param>
+        /// <param name="outputFileName">Nombre del archivo de salida.</param>
+        /// <param name="charKey">Llave de cifrado.</param>
+        /// <param name="encrypt">Modo de operación: encripta o desencripta.</param>
+        public static void cryptFile(string inputFileName, string outputFileName, string charKey, bool encrypt)
         {
             FileStream inStream = null;
             FileStream outStream = null;
+
             try
             {
                 Idea idea = new Idea(charKey, encrypt);
@@ -52,18 +45,22 @@ namespace IdeaCipher
                     {
                         throw new IOException("El archivo está vacío.");
                     }
+
                     if (inFileSize % blockSize != 0)
                     {
                         throw new IOException("El archivo de entrada no es un múltiplo de " + blockSize + ".");
                     }
+
                     inDataLen = inFileSize - blockSize;
                     outDataLen = inDataLen;
                 }
+
                 outStream = new FileStream(outputFileName, FileMode.Create, FileAccess.Write);
-                processData(inStream, inDataLen, outStream, outDataLen, bsc);
+                ProcessData(inStream, inDataLen, outStream, outDataLen, bsc);
+
                 if (encrypt)
                 {
-                    writeDataLength(outStream, inDataLen, bsc);
+                    WriteDataLength(outStream, inDataLen, bsc);
                 }
                 else
                 {
@@ -92,13 +89,18 @@ namespace IdeaCipher
             }
         }
 
+        /// <summary>
+        /// Genera bloques de cifrado con el stream de datos.
+        /// </summary>
         private class BlockStreamCrypter
         {
             Idea idea;
             bool encrypt;
-            // data of the previous ciphertext block
+
             byte[] prev;
             byte[] newPrev;
+
+
             public BlockStreamCrypter(Idea idea, bool encrypt)
             {
                 this.idea = idea;
@@ -106,11 +108,13 @@ namespace IdeaCipher
                 prev = new byte[blockSize];
                 newPrev = new byte[blockSize];
             }
-            public void crypt(byte[] data, int pos)
+
+
+            public void Crypt(byte[] data, int pos)
             {
                 if (encrypt)
                 {
-                    xor(data, pos, prev);
+                    Xor(data, pos, prev);
                     idea.Crypt(data, pos);
                     Array.Copy(data, pos, prev, 0, blockSize);
                 }
@@ -118,7 +122,7 @@ namespace IdeaCipher
                 {
                     Array.Copy(data, pos, newPrev, 0, blockSize);
                     idea.Crypt(data, pos);
-                    xor(data, pos, prev);
+                    Xor(data, pos, prev);
                     byte[] temp = prev;
                     prev = newPrev;
                     newPrev = temp;
@@ -126,66 +130,90 @@ namespace IdeaCipher
             }
         }
 
-        private static void processData(FileStream inStream, long inDataLen, FileStream outStream, long outDataLen, BlockStreamCrypter bsc)
+        /// <summary>
+        /// Se encarga de procesar los datos de los archivos.
+        /// </summary>
+        private static void ProcessData(FileStream inStream, long inDataLen, FileStream outStream, long outDataLen, BlockStreamCrypter blockStreamCrypter)
         {
             int bufSize = 0x200000;
-            byte[] buf = new byte[bufSize];
+            byte[] buffer = new byte[bufSize];
             long filePos = 0;
             while (filePos < inDataLen)
             {
                 int reqLen = (int)Math.Min(inDataLen - filePos, bufSize);
-                int trLen = inStream.Read(buf, 0, reqLen);
+                int trLen = inStream.Read(buffer, 0, reqLen);
                 if (trLen != reqLen)
                 {
                     throw new Exception("Hubo un error en la lectura de datos, ya que han sido leidos de manera incompleta.");
                 }
-                int chunkLen = (trLen + blockSize - 1) / blockSize * blockSize;
-                for (int i = trLen; i <= chunkLen; i++)
+                int chunkLength = (trLen + blockSize - 1) / blockSize * blockSize;
+                for (int i = trLen; i <= chunkLength; i++)
                 {
-                    buf[i] = 0;
+                    buffer[i] = 0;
                 }
-                for (int pos = 0; pos < chunkLen; pos += blockSize)
+                for (int pos = 0; pos < chunkLength; pos += blockSize)
                 {
-                    bsc.crypt(buf, pos);
+                    blockStreamCrypter.Crypt(buffer, pos);
                 }
-                reqLen = (int)Math.Min(outDataLen - filePos, chunkLen);
+                reqLen = (int)Math.Min(outDataLen - filePos, chunkLength);
 
-                outStream.Write(buf, 0, reqLen);
+                outStream.Write(buffer, 0, reqLen);
 
-                filePos += chunkLen;
+                filePos += chunkLength;
             }
         }
 
-        private static void xor(byte[] a, int pos, byte[] b)
+        /// <summary>
+        /// Hace una operación XOR con los bytes y la posición.
+        /// </summary>
+        /// <param name="a">Arreglo de bytes 1.</param>
+        /// <param name="position">Posición</param>
+        /// <param name="b">Arreglo de bytes 2.</param>
+        private static void Xor(byte[] a, int position, byte[] b)
         {
-            for (int p = 0; p < blockSize; p++)
+            for (int i = 0; i < blockSize; i++)
             {
-                a[pos + p] ^= b[p];
+                a[position + i] ^= b[i];
             }
         }
 
+        /// <summary>
+        /// Lee la longitud del stream de datos.
+        /// </summary>
+        /// <param name="stream">El stream.</param>
+        /// <param name="bsc">El bloque de cifrado.</param>
+        /// <returns></returns>
         private static long readDataLength(FileStream stream, BlockStreamCrypter bsc)
         {
-            byte[] buf = new byte[blockSize];
-            int trLen = stream.Read(buf, 0, blockSize);
+            byte[] buffer = new byte[blockSize];
+            int trLen = stream.Read(buffer, 0, blockSize);
             if (trLen != blockSize)
             {
                 throw new Exception("No se pudo leer el stream de datos.");
             }
-            bsc.crypt(buf, 0);
-            return unpackDataLength(buf);
+            bsc.Crypt(buffer, 0);
+            return unpackDataLength(buffer);
         }
 
-        private static void writeDataLength(FileStream stream, long dataLength, BlockStreamCrypter bsc)
+        /// <summary>
+        /// Escribe los datos con la longitud dada.
+        /// </summary>
+        /// <param name="stream">Stream de datos.</param>
+        /// <param name="dataLength">Longitud del dato</param>
+        /// <param name="bsc">Bloque de cifrado.</param>
+        private static void WriteDataLength(FileStream stream, long dataLength, BlockStreamCrypter bsc)
         {
             byte[] a = packDataLength(dataLength);
-            bsc.crypt(a, 0);
+            bsc.Crypt(a, 0);
             stream.Write(a, 0, blockSize);
         }
 
-        // Packs an integer into an 8-byte block. Used to encode the file size.
-        // To support larger files, we allow 13 more bits than the original IDEA V1.1 implementation.
-        // But files larger than 4GB are no longer backward compatible with the old IDEA V1.1 file structure.
+
+        /// <summary>
+        /// Empaqueta el entero en un bloque de 8 bytes usado para coodificar el tamaño del archivo.
+        /// </summary>
+        /// <param name="i">Longitud del archivo.</param>
+        /// <returns>El arreglo de bytes.</returns>
         private static byte[] packDataLength(long i)
         {
             if (i > 0x1FFFFFFFFFFFL) // 45 bits
@@ -202,8 +230,12 @@ namespace IdeaCipher
             return b;
         }
 
-        // Extracts an integer from an 8-byte block. Used to decode the file size.
-        // Returns -1 if the encoded value is invalid. This means that the input file is not a valid cryptogram.
+        /// <summary>
+        /// Empaqueta el entero en un bloque de 8 bytes usado para coodificar el tamaño del archivo.
+        /// </summary>
+        /// <param name="i">Longitud del archivo.</param>
+        /// <returns>El arreglo de bytes.
+        /// Si se regresa -1, el valor codificado es invalido, lo que significa que el archivo de entrada no es un criptograma válido.</returns>
         private static long unpackDataLength(byte[] b)
         {
             if (b[0] != 0 || b[1] != 0 || (b[7] & 7) != 0)
